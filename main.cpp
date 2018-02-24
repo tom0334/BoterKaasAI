@@ -111,7 +111,7 @@ bool hasEmptySpot(int *board) {
 
 void doComputerTurn(int *board) {
     lowestDepth= 100000;
-    move m= minMax(board, COMPUTER,4);
+    move m= minMax(board, COMPUTER,10);
     printBoard(board);
     std::cout << " SCORE: " << m.score << std::endl;
     *(board + m.index)= COMPUTER;
@@ -126,7 +126,7 @@ move minMax(int *board, int whoseTurn, int depth) {
 
 
     if(depth==0){
-        int score = eval(board);
+        int score = evalPlayer(board, whoseTurn);
         return {score, -1};
     }
 
@@ -140,7 +140,9 @@ move minMax(int *board, int whoseTurn, int depth) {
 
     //tie
     if (possiblemoves.empty()){
-        return {0, -1};
+        int score = evalPlayer(board, whoseTurn);
+        return {score,-1};
+
     }
 
 
