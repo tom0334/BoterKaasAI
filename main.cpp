@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cmath>
+#include <vector>
+#include <unordered_map>
 
 
 const int PLAYER =1;
@@ -18,24 +20,40 @@ struct move{
     int index;
 };
 
+struct posChecker{
+    bool horizontal;
+    bool vertical;
+    bool upRight;
+    bool downRight;
+};
+
+struct position{
+    short key;
+    short x;
+    short y;
+    posChecker check;
+};
+
+
 
 
 char getCharForBoard(int content);
 void printBoard(const int*);
-int minMax(int * board, int player, int depth);
+move minMax(int * board, int player, int depth);
 void doUserMove(int *board);
 bool moveIsValid(const int *board, int movespot);
 int getValue(const int* board, int x , int y);
 void printBoardWithIndexes(int *board);
 int getWinner(int* board);
 //move* getAvailableMoves(int * board , int * size);
-int neighbourCount(int *board, int x, int y, direction dir, int count);
+int checkIfWonAtSpot(int *board, int x, int y, direction dir, int count);
 void doComputerTurn(int *board);
+int evalPlayer(int *board, int player);
+int eval(int * board);
 
 
 bool hasEmptySpot(int *board);
 
-move bestmove;
 int lowestDepth=10000;
 
 int main() {
@@ -93,80 +111,83 @@ bool hasEmptySpot(int *board) {
 
 void doComputerTurn(int *board) {
     lowestDepth= 100000;
-    int score = minMax(board, COMPUTER,9);
-    std::cout << " SCORE: " << score << std::endl;
-    *(board + bestmove.index)= COMPUTER;
+    move m= minMax(board, COMPUTER,4);
+    printBoard(board);
+    std::cout << " SCORE: " << m.score << std::endl;
+    *(board + m.index)= COMPUTER;
 }
 
-int minMax(int *board, int whoseTurn, int depth) {
+move minMax(int *board, int whoseTurn, int depth) {
     if(depth< lowestDepth){
         std::cout << "DEPTH: "<< depth  <<std::endl;
         lowestDepth= depth;
     }
+
+
+
     if(depth==0){
-        return 0;
+        int score = eval(board);
+        return {score, -1};
     }
 
-    int winner = getWinner(board);
-    if (winner==PLAYER){
-        return -10;
-    }
-    else if (winner==COMPUTER){
-        return 10;
-    }
 
-    int count =0;
-
+    std::vector<move> possiblemoves(0);
     for (int i = 0; i < boardSize * boardSize; ++i) {
         if( *(board +i) == 0){
-            count++;
+            possiblemoves.push_back({0,i});
         }
     }
-    move options [count];
-    int optionIndex=0;
-    for (int j = 0; j < boardSize * boardSize; ++j) {
-        if ( *(board +j) ==0){
-            options[optionIndex].index=j;
-            optionIndex++;
-        }
-        options[optionIndex].score=0;
-    }
-
 
     //tie
-    if (count==0){
-        return 0;
-    }
-    //loop over all available moves
-    move currentBestMove;
-    if(whoseTurn==PLAYER){
-        currentBestMove= {100,0};
-    }else{
-        currentBestMove= {-100,0};
+    if (possiblemoves.empty()){
+        return {0, -1};
     }
 
 
-    for (int i = 0; i < count; ++i) {
-        move m = options[i];
-        *(board + m.index) = whoseTurn;
-        if(whoseTurn==PLAYER) {
-             m.score = minMax(board, COMPUTER, depth -1);
-            if(m.score< currentBestMove.score){
-                currentBestMove= m;
-            }
+    for(int i=0; i< possiblemoves.size();i ++) {
+        *(board +  possiblemoves.at(i).index) = whoseTurn;
 
+        int score;
+        if(whoseTurn==PLAYER){
+            score= minMax(board, COMPUTER, depth-1).score;
         }else{
-            m.score = minMax(board, PLAYER, depth -1);
-            if(m.score> currentBestMove.score){
-                currentBestMove= m;
+            score = minMax(board, PLAYER, depth-1).score;
+        }
+        possiblemoves.at(i).score= score;
+        *(board + possiblemoves.at(i).index) = 0;
+    }
+
+
+    move bestMove{0,-1};
+    if (whoseTurn == PLAYER) {
+        int bestScore= INT32_MAX;
+        for (move m : possiblemoves) {
+            if(m.score< bestScore){
+                bestMove= m;
+                bestScore=m.score;
             }
 
         }
-        //make the board location empty again.
-        *(board + m.index) = 0;
+    }else{
+
+        int bestScore= INT32_MIN;
+        for (move m : possiblemoves) {
+            if(m.score> bestScore){
+                bestMove= m;
+                bestScore=m.score;
+            }
+
+        }
+
+
     }
-    bestmove= currentBestMove;
-    return currentBestMove.score;
+
+
+    return bestMove;
+
+
+
+
 
 }
 
@@ -182,7 +203,7 @@ int getWinner(int* board) {
 
             for ( int dirInt = right; dirInt <= downRight; dirInt++ ) {
                 direction dir = static_cast<direction >(dirInt);
-                int winner = neighbourCount(board, x, y, dir, 1);
+                int winner = checkIfWonAtSpot(board, x, y, dir, 1);
                 if (winner!=-1){
                     return winner;
                 }
@@ -254,7 +275,6 @@ bool moveIsValid(const int *board, int movespot) {
 
 
 
-
 char getCharForBoard(int content) {
     switch (content){
         case 0:
@@ -282,50 +302,157 @@ void printBoard(const int * point) {
 }
 
 int getValue(const int *board, int x, int y) {
-    if (x>=boardSize || y>= boardSize){
+    if (x>=boardSize || y>= boardSize || x<0 || y<0){
         return -1;
     }
     return *(board + (y * boardSize) + x);
 }
 
-int neighbourCount(int *board, int x, int y, direction dir, int count) {
-    int value = getValue(board, x,y);
+int checkIfWonAtSpot(int *board, int x, int y, direction dir, int count) {
+    int value = getValue(board, x, y);
 
     int newX;
     int newY;
 
-    if(dir== right){
-        newY= y;
-        newX= x+1;
-            }
-    else if (dir==down){
-        newY= y +1;
-        newX= x;
+    if (dir == right) {
+        newY = y;
+        newX = x + 1;
+    } else if (dir == down) {
+        newY = y + 1;
+        newX = x;
+    } else if (dir == downRight) {
+        newY = y + 1;
+        newX = x + 1;
+    } else if (dir == upRight) {
+        newY = y - 1;
+        newX = x + 1;
     }
 
-    else if (dir == downRight){
-        newY= y+1;
-        newX= x+1;
-    }
+    int newValue = getValue(board, newX, newY);
+    if (newValue != 0 && newValue == value) {
 
-    else if( dir == upRight){
-        newY= y-1;
-        newX= x+1;
-    }
-
-    int newValue= getValue(board, newX, newY);
-    if (newValue!=0 && newValue==value){
-        
         count++;
-        if (count==amountOnARow){
+        if (count == amountOnARow) {
             return value;
         }
-        return neighbourCount(board,newX, newY, dir, count );
+        return checkIfWonAtSpot(board, newX, newY, dir, count);
     }
 
     return -1;
+}
+
+
+int evalPlayer(int *board, int player) {
+    position positionMap[boardSize * boardSize];
+    std::vector<position> possibleMoves(0);
+
+    for (short x = 0; x < boardSize; ++x) {
+        for (short y = 0; y < boardSize; ++y) {
+            short index =  (y *  (short)boardSize) + x;
+            if(getValue(board,x,y)==player){
+
+                position thePos= {
+                    key: index,
+                    x: x,
+                    y :y,
+                    check:{
+                            false,
+                            false,
+                            false,
+                            false
+                    }
+                };
+                possibleMoves.push_back(thePos);
+                positionMap[index] = thePos;
+            }else {
+                positionMap[index] = {-1, -1, -1, {true, true, true, true}};
+            }
+        }
+    }
+
+    int counts[10];
+    for(int i=0; i< 10; i++){
+        counts[i]=0;
+    }
+
+
+    for(position p: possibleMoves) {
+        int count=1;
+        position current = p;
+
+        //search for horizontal lines
+        while ( !current.check.horizontal && getValue(board, current.x +1, current.y) == player){
+            count++;
+            //current.check.horizontal=true;
+            current = positionMap[ current.key+1];
+        }
+        counts[count]++;
+
+
+        count=1;
+        current = p;
+        //search for vertical lines
+        while ( !current.check.vertical && getValue(board, current.x, current.y+1) == player){
+            count++;
+            //current.check.vertical=true;
+            current = positionMap[ current.key + boardSize];
+        }
+        counts[count]++;
+
+
+        count=1;
+        current = p;
+        //search for downright lines
+        while ( !current.check.downRight  && getValue(board, current.x +1, current.y+1) == player){
+            count++;
+            //current.check.downRight=true;
+            current = positionMap[ current.key + boardSize+1];
+        }
+        counts[count]++;
+
+
+
+        count=1;
+        current = p;
+        //search for upright lines
+        while ( !current.check.upRight && current.y -1 >= 0  && current.x +1 < boardSize && getValue(board, current.x+1, current.y-1) == player){
+            count++;
+            //current.check.upRight=true;
+            current = positionMap[ current.key + boardSize-1];
+        }
+        counts[count]++;
+    }
+
+
+    int score = 10000 * counts[3] + 100 * counts[2] + counts[1];
+    if(player==COMPUTER){
+        //std::cout <<  "COMPUTER: score for the following board: "<< score << std::endl;
+        //std::cout << "COUNTS: "<< counts[1] <<" " << counts[2]<< " " <<counts[3]<< std::endl;
+        //printBoard(board);
+        return score;
+    }
+    else{
+        //std::cout << "PLAYER: score for the following board"<< -score << std::endl;
+        //std::cout << "COUNTS: "<< counts[1] <<" " << counts[2]<< " " <<counts[3]<< std::endl;
+        //printBoard(board);
+        return -score;
+
+    }
 
 }
+
+int eval(int *board) {
+    int score = evalPlayer(board, PLAYER) + evalPlayer(board,COMPUTER);
+    //std::cout<< "TOTAL SCORE: " <<score << std::endl;
+    //printBoard(board);
+    return score;
+
+}
+
+
+
+
+
 
 
 
