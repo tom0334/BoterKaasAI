@@ -30,7 +30,7 @@ bool Utils::askUserForBool(std::string message) {
 int Utils::askUserForInt(std::string message, int min, int max) {
     while (true){
         std::cout << message << std::endl;
-        std::cout << "Please type an integer between ."<< min << " and " << max << std::endl;
+        std::cout << "Please type an integer between "<< min << " and " << max << std::endl;
 
         int  result =0;
         std::cin >> result;
