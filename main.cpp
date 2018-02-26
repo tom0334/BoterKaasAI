@@ -47,6 +47,8 @@ int getWinner(int* board);
 int checkIfWonAtSpot(int *board, int x, int y, CheckDirection dir, int count);
 void doComputerTurn(int *board);
 int evalPlayer(int *board, int player);
+std::vector<position> getTakenSpots(int * board, int player);
+bool playerWon(int * board, int player);
 
 
 bool hasEmptySpot(int *board);
@@ -208,27 +210,18 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
 
 
 
-
 int getWinner(int* board) {
-    for (int x = 0; x < boardSize; ++x) {
-        for (int y = 0; y < boardSize; ++y) {
-            if(getValue(board, x, y) ==0){
-                continue;
-            }
-
-            for ( int dirInt = right; dirInt <= downRight; dirInt++ ) {
-                CheckDirection dir = static_cast<CheckDirection >(dirInt);
-                int winner = checkIfWonAtSpot(board, x, y, dir, 1);
-                if (winner!=-1){
-                    return winner;
-                }
-
-            }
-            
-        }
+    if(playerWon(board, COMPUTER)){
+        return COMPUTER;
+    }
+    if(playerWon(board, PLAYER)){
+        return PLAYER;
     }
     return -1;
 }
+
+
+
 
 
 
@@ -357,36 +350,21 @@ int checkIfWonAtSpot(int *board, int x, int y, CheckDirection dir, int count) {
 }
 
 
+
+
+
+
 int evalPlayer(int *board, int player) {
+
+
+    //this is a list of only the indexes taken by the current player
+    std::vector<position> takenSpots= getTakenSpots(board , player);
+
     //this will keep the positions on the board. The index is the same as the index in the normal board[]
     position boardPositions[boardSize * boardSize];
 
-    //this is a list of only the indexes taken by the current player
-    std::vector<position> takenSpots(0);
-
-    for (short x = 0; x < boardSize; ++x) {
-        for (short y = 0; y < boardSize; ++y) {
-            short index =  (y *  (short)boardSize) + x;
-
-            //check if this value is taken by the player.
-            //if it is, put it in the takenspots and the boardpositions
-            if(getValue(board,x,y)==player){
-
-                position thePos= {
-                    key: index,
-                    x: x,
-                    y :y,
-                    check:{
-                            false,
-                            false,
-                            false,
-                            false
-                    }
-                };
-                takenSpots.push_back(thePos);
-                boardPositions[index] = thePos;
-            }
-        }
+    for (auto pos : takenSpots) {
+        boardPositions[pos.key]= pos;
     }
 
     //this will keep the amount of times the index of this array is found in the board for this player
@@ -446,9 +424,7 @@ int evalPlayer(int *board, int player) {
 
 
 
-
-
-    int score = 1000 * counts[3] + 50 * counts[2] + counts[1];
+    int score = 10000 * counts[3] + 50 * counts[2] + counts[1];
 
 
     if(player==COMPUTER){
@@ -466,6 +442,42 @@ int evalPlayer(int *board, int player) {
     }
 
 }
+
+bool playerWon(int *board, int player) {
+    int evaluation= evalPlayer(board, player);
+    return evaluation>=10000 || evaluation <=-10000;
+}
+
+
+std::vector<position> getTakenSpots(int *board, int player) {
+    std::vector<position> takenSpots(0);
+
+    for (short x = 0; x < boardSize; ++x) {
+        for (short y = 0; y < boardSize; ++y) {
+            short index =  (y *  (short)boardSize) + x;
+
+            //check if this value is taken by the player.
+            //if it is, put it in the takenspots and the boardpositions
+            if(getValue(board,x,y)==player){
+
+                position thePos= {
+                        key: index,
+                        x: x,
+                        y :y,
+                        check:{
+                                false,
+                                false,
+                                false,
+                                false
+                        }
+                };
+                takenSpots.push_back(thePos);
+            }
+        }
+    }
+    return takenSpots;
+}
+
 
 
 
