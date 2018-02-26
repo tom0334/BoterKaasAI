@@ -3,4 +3,4 @@ project(BoterKaasAI)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(BoterKaasAI main.cpp)
+add_executable(BoterKaasAI main.cpp Utils.cpp Utils.h)

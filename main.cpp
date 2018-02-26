@@ -2,7 +2,7 @@
 #include <cmath>
 #include <vector>
 #include <unordered_map>
-#include <string>
+#include "Utils.h"
 
 const int PLAYER =1;
 const int COMPUTER=2;
@@ -44,52 +44,27 @@ bool moveIsValid(const int *board, int movespot);
 int getValue(const int* board, int x , int y);
 void printBoardWithIndexes(int *board);
 int getWinner(int* board);
-//MoveStruct* getAvailableMoves(int * board , int * size);
 int checkIfWonAtSpot(int *board, int x, int y, CheckDirection dir, int count);
 void doComputerTurn(int *board);
-int evalPlayer(int *board, int player, int depth);
-int eval(int * board);
+int evalPlayer(int *board, int player);
 
 
 bool hasEmptySpot(int *board);
-
-bool askUserForBool(std::string message);
-
 int lowestDepth=10000;
 
+
 int main() {
-    boardSize = 0;
-    while (boardSize <= 0 || boardSize > 4) {
-        std::cout << "Hello! Boardsize (below 4)?" << std::endl;
-        std::cin >> boardSize;
-    }
+    boardSize = Utils::askUserForInt("Hi! What boardsize do you want?", 3, 4);
 
     bool exit = false;
     while (! exit){
         mainloop();
-        exit=  ! askUserForBool("Would you like to play another game?");
+        exit = ! Utils::askUserForBool("Would you like to play another game?");
     }
     std::cout<< "Bye!"<<std::endl;
     return 0;
 }
 
-bool askUserForBool(std::string message) {
-    while (true){
-        std::cout << message << std::endl;
-        std::cout << "Please type y or n."<< std::endl;
-
-        char yesOrNo=0;
-        std::cin >> yesOrNo;
-
-        if (yesOrNo== 'n' || yesOrNo == 'N'){
-            return false;
-        }
-        else if (yesOrNo== 'y' || yesOrNo == 'Y'){
-            return true;
-        }
-        std::cout << "Invalid input" << std::endl;
-    }
-}
 
 void mainloop() {
     //create the board array and init all values to zero
@@ -163,7 +138,7 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
 
 
     if(depth==0 ){
-        int score = evalPlayer(board, whoseTurn, depth);
+        int score = evalPlayer(board, whoseTurn);
         return {score, -1};
     }
 
@@ -382,13 +357,19 @@ int checkIfWonAtSpot(int *board, int x, int y, CheckDirection dir, int count) {
 }
 
 
-int evalPlayer(int *board, int player, int depth) {
-    position positionMap[boardSize * boardSize];
-    std::vector<position> possibleMoves(0);
+int evalPlayer(int *board, int player) {
+    //this will keep the positions on the board. The index is the same as the index in the normal board[]
+    position boardPositions[boardSize * boardSize];
+
+    //this is a list of only the indexes taken by the current player
+    std::vector<position> takenSpots(0);
 
     for (short x = 0; x < boardSize; ++x) {
         for (short y = 0; y < boardSize; ++y) {
             short index =  (y *  (short)boardSize) + x;
+
+            //check if this value is taken by the player.
+            //if it is, put it in the takenspots and the boardpositions
             if(getValue(board,x,y)==player){
 
                 position thePos= {
@@ -402,21 +383,21 @@ int evalPlayer(int *board, int player, int depth) {
                             false
                     }
                 };
-                possibleMoves.push_back(thePos);
-                positionMap[index] = thePos;
-            }else {
-                positionMap[index] = {-1, -1, -1, {true, true, true, true}};
+                takenSpots.push_back(thePos);
+                boardPositions[index] = thePos;
             }
         }
     }
 
-    int counts[10];
-    for(int i=0; i< 10; i++){
-        counts[i]=0;
+    //this will keep the amount of times the index of this array is found in the board for this player
+    //for instance, if there are 3 rows of 2, counts[2] = 3
+    int counts[boardSize+1];
+    for (int &count : counts) {
+        count =0;
     }
 
 
-    for(position p: possibleMoves) {
+    for(position p: takenSpots) {
         int count=1;
         position current = p;
 
@@ -424,7 +405,7 @@ int evalPlayer(int *board, int player, int depth) {
         while ( !current.check.horizontal && getValue(board, current.x +1, current.y) == player){
             count++;
             current.check.horizontal=true;
-            current = positionMap[ current.key+1];
+            current = boardPositions[ current.key+1];
         }
         counts[count]++;
 
@@ -435,7 +416,7 @@ int evalPlayer(int *board, int player, int depth) {
         while ( !current.check.vertical && getValue(board, current.x, current.y+1) == player){
             count++;
             current.check.vertical=true;
-            current = positionMap[ current.key + boardSize];
+            current = boardPositions[ current.key + boardSize];
         }
         counts[count]++;
 
@@ -446,7 +427,7 @@ int evalPlayer(int *board, int player, int depth) {
         while ( !current.check.downRight  && getValue(board, current.x +1, current.y+1) == player){
             count++;
             current.check.downRight=true;
-            current = positionMap[ current.key + boardSize+1];
+            current = boardPositions[ current.key + boardSize+1];
         }
         counts[count]++;
 
@@ -458,7 +439,7 @@ int evalPlayer(int *board, int player, int depth) {
         while ( !current.check.upRight && current.y -1 >= 0  && current.x +1 < boardSize && getValue(board, current.x+1, current.y-1) == player){
             count++;
             current.check.upRight=true;
-            current = positionMap[ current.key + boardSize-1];
+            current = boardPositions[ current.key + boardSize-1];
         }
         counts[count]++;
     }
@@ -485,18 +466,6 @@ int evalPlayer(int *board, int player, int depth) {
     }
 
 }
-
-/*
-int eval(int *board, int depth) {
-    int score = evalPlayer(board, PLAYER, depth) + evalPlayer(board,COMPUTER);
-    //std::cout<< "TOTAL SCORE: " <<score << std::endl;
-    //printBoard(board);
-    return score;
-
-}
-
-*/
-
 
 
 
