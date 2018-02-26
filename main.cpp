@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include "Utils.h"
+#include <chrono>
 
 const int PLAYER =1;
 const int COMPUTER=2;
@@ -50,7 +51,7 @@ void doComputerTurn(int *board);
 int evalPlayer(int *board, int player);
 std::vector<position> getTakenSpots(int * board, int player);
 bool playerWon(int * board, int player);
-std::vector<MoveStruct> getPossibleMoves(const int * board);
+inline std::vector<MoveStruct> getPossibleMoves(const int * board);
 
 
 
@@ -126,19 +127,31 @@ void doComputerTurn(int *board) {
     callcount=0;
 
     int depth;
-    if(boardSize==3){
+
+    if(boardSize==3 || gravity){
         depth=9;
     }
-    else{
-        depth=6;
+    else {
+        depth=5;
     }
+
+
+    auto start = std::chrono::high_resolution_clock::now();
     MoveStruct m= minMax(board, COMPUTER,depth);
+    auto finish = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> elapsed = finish - start;
+    float calcountInMillions= (float) callcount /1000000;
+    double callsPerSecond= (double) callcount / elapsed.count();
     printBoard(board);
     std::cout << " SCORE: " << m.score << std::endl;
     std::cout << " INDEX " << m.index <<std::endl;
-
-    float calcountInMillions= (float) callcount /1000000;
+    std::cout << "Elapsed time: " << elapsed.count() << std::endl;
     std::cout << "Callcount: " << calcountInMillions << "M" <<std::endl;
+
+    std::cout << "Calls per second: " << callsPerSecond << std::endl;
+
+
     *(board + m.index)= COMPUTER;
 }
 
@@ -470,11 +483,10 @@ std::vector<position> getTakenSpots(int *board, int player) {
     return takenSpots;
 }
 
-std::vector<MoveStruct> getPossibleMoves(const int *board) {
+inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
     std::vector<MoveStruct> possiblemoves(0);
 
     if (gravity) {
-
 
         for( int x= 0; x<boardSize ; x++){
 
