@@ -8,7 +8,8 @@ const int PLAYER =1;
 const int COMPUTER=2;
 
 int boardSize;
-const int amountOnARow=3;
+int amountOnARow;
+bool userStarts;
 
 
 
@@ -52,11 +53,14 @@ bool playerWon(int * board, int player);
 
 
 bool hasEmptySpot(int *board);
-int lowestDepth=10000;
+int lowestDepth=INT32_MAX;
+int callcount= 0;
 
 
 int main() {
     boardSize = Utils::askUserForInt("Hi! What boardsize do you want?", 3, 4);
+    amountOnARow=boardSize;
+    userStarts= Utils::askUserForBool("Do you want to start?");
 
     bool exit = false;
     while (! exit){
@@ -77,7 +81,7 @@ void mainloop() {
     }
 
 
-    bool userTurn=true;
+    bool userTurn=userStarts;
 
     while ( true ) {
         if(getWinner(board)!=-1){
@@ -115,15 +119,29 @@ bool hasEmptySpot(int *board) {
 
 
 void doComputerTurn(int *board) {
-    lowestDepth= 100000;
-    MoveStruct m= minMax(board, COMPUTER,6);
+    lowestDepth= INT32_MAX;
+    callcount=0;
+
+    int depth;
+    if(boardSize==3){
+        depth=10;
+    }
+    else{
+        depth=6;
+    }
+    MoveStruct m= minMax(board, COMPUTER,depth);
     printBoard(board);
     std::cout << " SCORE: " << m.score << std::endl;
     std::cout << " INDEX " << m.index <<std::endl;
+
+    float calcountInMillions= (float) callcount /1000000;
+    std::cout << "Callcount: " << calcountInMillions << "M" <<std::endl;
     *(board + m.index)= COMPUTER;
 }
 
 MoveStruct minMax(int *board, int whoseTurn, int depth) {
+    callcount++;
+
     if(depth< lowestDepth){
         std::cout << "DEPTH: "<< depth  <<std::endl;
         lowestDepth= depth;
@@ -424,7 +442,7 @@ int evalPlayer(int *board, int player) {
 
 
 
-    int score = 10000 * counts[3] + 50 * counts[2] + counts[1];
+    int score = 10000 * counts[amountOnARow] + 100* counts[3] + 10 * counts[2] + counts[1];
 
 
     if(player==COMPUTER){
