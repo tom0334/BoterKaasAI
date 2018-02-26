@@ -10,6 +10,7 @@ const int COMPUTER=2;
 int boardSize;
 int amountOnARow;
 bool userStarts;
+bool gravity;
 
 
 
@@ -45,11 +46,12 @@ bool moveIsValid(const int *board, int movespot);
 int getValue(const int* board, int x , int y);
 void printBoardWithIndexes(int *board);
 int getWinner(int* board);
-int checkIfWonAtSpot(int *board, int x, int y, CheckDirection dir, int count);
 void doComputerTurn(int *board);
 int evalPlayer(int *board, int player);
 std::vector<position> getTakenSpots(int * board, int player);
 bool playerWon(int * board, int player);
+std::vector<MoveStruct> getPossibleMoves(const int * board);
+
 
 
 bool hasEmptySpot(int *board);
@@ -61,6 +63,7 @@ int main() {
     boardSize = Utils::askUserForInt("Hi! What boardsize do you want?", 3, 4);
     amountOnARow=boardSize;
     userStarts= Utils::askUserForBool("Do you want to start?");
+    gravity= Utils::askUserForBool("Gravity?");
 
     bool exit = false;
     while (! exit){
@@ -124,7 +127,7 @@ void doComputerTurn(int *board) {
 
     int depth;
     if(boardSize==3){
-        depth=10;
+        depth=9;
     }
     else{
         depth=6;
@@ -138,6 +141,8 @@ void doComputerTurn(int *board) {
     std::cout << "Callcount: " << calcountInMillions << "M" <<std::endl;
     *(board + m.index)= COMPUTER;
 }
+
+
 
 MoveStruct minMax(int *board, int whoseTurn, int depth) {
     callcount++;
@@ -162,15 +167,9 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
         return {score, -1};
     }
 
-
-
     //find all the possible moves
-    std::vector<MoveStruct> possiblemoves(0);
-    for (int i = 0; i < boardSize * boardSize; ++i) {
-        if( *(board +i) == 0){
-            possiblemoves.push_back({0,i});
-        }
-    }
+    std::vector<MoveStruct> possiblemoves= getPossibleMoves(board);
+
 
     //tie
     if (possiblemoves.empty() ){
@@ -294,6 +293,17 @@ void printBoardWithIndexes(int *board) {
 }
 
 bool moveIsValid(const int *board, int movespot) {
+
+    if(gravity){
+        std::vector<MoveStruct> possibleMoves= getPossibleMoves(board);
+        for (auto &move : possibleMoves){
+            if ( movespot == move.index){
+                return true;
+            }
+        }
+
+        return false;
+    }
     return *(board +movespot)==0;
 }
 
@@ -333,42 +343,6 @@ int getValue(const int *board, int x, int y) {
     }
     return *(board + (y * boardSize) + x);
 }
-
-int checkIfWonAtSpot(int *board, int x, int y, CheckDirection dir, int count) {
-    int value = getValue(board, x, y);
-
-    int newX;
-    int newY;
-
-    if (dir == right) {
-        newY = y;
-        newX = x + 1;
-    } else if (dir == down) {
-        newY = y + 1;
-        newX = x;
-    } else if (dir == downRight) {
-        newY = y + 1;
-        newX = x + 1;
-    } else if (dir == upRight) {
-        newY = y - 1;
-        newX = x + 1;
-    }
-
-    int newValue = getValue(board, newX, newY);
-    if (newValue != 0 && newValue == value) {
-
-        count++;
-        if (count == amountOnARow) {
-            return value;
-        }
-        return checkIfWonAtSpot(board, newX, newY, dir, count);
-    }
-
-    return -1;
-}
-
-
-
 
 
 
@@ -494,6 +468,45 @@ std::vector<position> getTakenSpots(int *board, int player) {
         }
     }
     return takenSpots;
+}
+
+std::vector<MoveStruct> getPossibleMoves(const int *board) {
+    std::vector<MoveStruct> possiblemoves(0);
+
+    if (gravity) {
+
+
+        for( int x= 0; x<boardSize ; x++){
+
+            //note the reversed order. Start at the bottom...
+            for( int y = boardSize; y>=0; y--){
+                if(getValue(board, x, y) == 0 ){
+                    int index= y * boardSize + x;
+                    possiblemoves.push_back( {0,index});
+
+                    //you cant place any more in this row.
+                    break;
+                }
+
+            }
+        }
+
+
+    }else{
+
+        //find all the possible moves
+        for (int i = 0; i < boardSize * boardSize; ++i) {
+            if (*(board + i) == 0) {
+                possiblemoves.push_back({0, i});
+            }
+        }
+
+
+
+    }
+
+
+    return possiblemoves;
 }
 
 
