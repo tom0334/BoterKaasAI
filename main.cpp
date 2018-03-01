@@ -8,19 +8,19 @@
 const int PLAYER =1;
 const int COMPUTER=2;
 
-//int boardSize;
+//the size and the amount of spots on the board (width *height)
 int width;
 int height;
-
 int BOARDSPOTS;
 
+//the amount of items on a row a player must have
 int amountOnARow;
+//who gets to place the first item?
 bool userStarts;
+//If false, its regular tic tac toe. If true, it turns into connect 4
 bool gravity;
 
-
-
-
+//the possible directions in which you can get 3 on a row. ( left is the same as right  so you don't need to check)
 enum CheckDirection{ right , down, upRight, downRight};
 
 struct MoveStruct{
@@ -28,13 +28,14 @@ struct MoveStruct{
     int index;
 };
 
+//this is for the evalution function. It uses it to keep track of what directions are already checked to avoid doing to many checks
 struct PosCheckStruct{
     bool horizontal;
     bool vertical;
     bool upRight;
     bool downRight;
 };
-
+//the key in here is the index in the board array
 struct position{
     short key;
     short x;
@@ -43,7 +44,6 @@ struct position{
 };
 
 void mainloop();
-
 char getCharForBoard(int content);
 void printBoard(const int*);
 MoveStruct minMax(int * board, int player, int depth);
@@ -57,11 +57,9 @@ int evalPlayer(int *board, int player);
 inline std::vector<position> getTakenSpots(int * board, int player);
 bool playerWon(int * board, int player);
 inline std::vector<MoveStruct> getPossibleMoves(const int * board);
-
-
-
 bool hasEmptySpot(int *board);
-int lowestDepth=INT32_MAX;
+
+//these are for statistics only
 int callcount= 0;
 
 
@@ -69,11 +67,11 @@ int main() {
     gravity= Utils::askUserForBool("Hi! Gravity?");
 
     if(gravity){
-        width = Utils::askUserForInt("Hi! Width?", 3, 6);
-        height = Utils::askUserForInt("Hi! Height?", 3, 6);
+        width = Utils::askUserForInt("Width?", 3, 6);
+        height = Utils::askUserForInt("Height?", 3, 6);
     }else{
-        width = Utils::askUserForInt("Hi! Width?", 3, 4);
-        height = Utils::askUserForInt("Hi! Height?", 3, 4);
+        width = Utils::askUserForInt("Width?", 3, 4);
+        height = Utils::askUserForInt("Height?", 3, 4);
     }
     BOARDSPOTS= width * height;
 
@@ -94,6 +92,7 @@ int main() {
 void mainloop() {
     //create the board array and init all values to zero
     //this array will keep what pieces are on the board.
+    //the values will be 0, COMPUTER or PLAYER
     int board[BOARDSPOTS];
     for (int i = 0; i < BOARDSPOTS; ++i) {
         board[i] = 0;
@@ -116,9 +115,10 @@ void mainloop() {
             std::cout << std::endl;
             doUserMove(board);
         }
-        else{doComputerTurn(board);}
-        userTurn=! userTurn;
+        else{ doComputerTurn(board);
+        }
 
+        userTurn=! userTurn;
     }
     std::cout << "Final board status: " << std::endl;
     printBoard(board);
@@ -138,11 +138,13 @@ bool hasEmptySpot(int *board) {
 
 
 void doComputerTurn(int *board) {
-    lowestDepth= INT32_MAX;
+    //reset statistics
     callcount=0;
 
     int depth;
 
+    //if the board is small, we can afford to go the full depth and win or tie the game every time
+    //it it isn't, this may take a lot of time so we will depend more on the evaluation function
     if(std::max(width, height)==3 || gravity){
         depth=9;
     }
@@ -152,22 +154,29 @@ void doComputerTurn(int *board) {
 
 
     auto start = std::chrono::high_resolution_clock::now();
+
+    //Find the best move
     MoveStruct m= minMax(board, COMPUTER,depth);
+
     auto finish = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double> elapsed = finish - start;
+
+    //print statistics and the new board
     float calcountInMillions= (float) callcount /1000000;
     double callsPerSecond= (double) callcount / elapsed.count();
-    printBoard(board);
-    std::cout << " SCORE: " << m.score << std::endl;
-    std::cout << " INDEX " << m.index <<std::endl;
+    std::cout << "SCORE: " << m.score << std::endl;
+    std::cout << "INDEX " << m.index <<std::endl;
     std::cout << "Elapsed time: " << elapsed.count() << std::endl;
     std::cout << "Callcount: " << calcountInMillions << "M" <<std::endl;
-
     std::cout << "Calls per second: " << callsPerSecond << std::endl;
 
 
+    //show the board before doing the move
+    printBoard(board);
+    //do the best move
     *(board + m.index)= COMPUTER;
+
 }
 
 
@@ -175,13 +184,7 @@ void doComputerTurn(int *board) {
 MoveStruct minMax(int *board, int whoseTurn, int depth) {
     callcount++;
 
-    if(depth< lowestDepth){
-        std::cout << "DEPTH: "<< depth  <<std::endl;
-        lowestDepth= depth;
-    }
-
-
-
+    //see if we have a winner already. if we do, we don't have to continue.
     if (whoseTurn==COMPUTER && playerWon(board, COMPUTER)){
         return {32000 +depth ,-1};
     }
@@ -190,12 +193,12 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
     }
 
 
-
-
+    //if we reach max depth, evaluate the board and return
     if(depth==0 ){
         int score = evalPlayer(board, whoseTurn);
         return {score, -1};
     }
+
 
     //find all the possible moves
     std::vector<MoveStruct> possiblemoves= getPossibleMoves(board);
@@ -207,7 +210,7 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
 
     }
 
-
+    //try all the moves and save the scores it finds deeper in the search
     for (auto &possiblemove : possiblemoves) {
         //do the move
         *(board + possiblemove.index) = whoseTurn;
@@ -223,7 +226,7 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
         *(board + possiblemove.index) = 0;
     }
 
-
+    //find the highest or lowest (depending on player) score to return it
     MoveStruct bestMove{0,-1};
     if (whoseTurn == PLAYER) {
         int bestScore= INT32_MAX;
@@ -248,11 +251,6 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
 
     }
     return bestMove;
-
-
-
-
-
 }
 
 
@@ -271,27 +269,28 @@ int getWinner(int* board) {
 
 
 
-
-
-
 void doUserMove(int *board) {
-
+    //wait for the user to input a valid move
     int moveSpot=-1;
-
     while ( ! moveIsValid(board,moveSpot)){
         printBoard(board);
         std::cout << "Where would you like to place your next item?"<<std::endl;
         printBoardWithIndexes(board);
         std::cin >> moveSpot;
     }
+    //do the move
      * (board+ moveSpot)= PLAYER;
 
 }
 
 
 
-
+//this prints the board with the index numbers to ask the user to type where he wants to place its item
 void printBoardWithIndexes(int *board) {
+    //the length the max index possible for this boardsize
+    //with length of the number, i mean  as string. for example, 403 is 3 chars long
+    int maxLength = (int) log10( BOARDSPOTS) +1;
+
     for (int x = 0; x < height; ++x) {
         std::cout << "|";
         for (int y = 0; y < width; ++y) {
@@ -300,16 +299,15 @@ void printBoardWithIndexes(int *board) {
 
 
             int length;
-            if (index==-0){
+            //log10 ( 0+1) doesnt work...
+            if (index==0){
                 length=1;
             }
             else{
                 length=  (int)(log10(index)+1);
             }
 
-
-            int maxLength = (int) log10( BOARDSPOTS) +1;
-
+            //print spaces for to align all items
             while (length>0 && length < maxLength){
                 std::cout<< " ";
                 length++;
@@ -397,8 +395,11 @@ int evalPlayer(int *board, int player) {
     }
 
 
+    //look at all the taken spots to find if it is the start of a row
     for(position p: takenSpots) {
         int count=1;
+
+        //save the position we are checking now to
         position current = p;
 
         //search for horizontal lines
@@ -504,16 +505,16 @@ inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
     std::vector<MoveStruct> possiblemoves(0);
 
     if (gravity) {
+        //if we play with gravity, only the top spot in every column is a valid move
 
+        //loop over all columns and find the top empty spot
         for( int x= 0; x<width ; x++){
-
             //note the reversed order. Start at the bottom...
             for( int y = height; y>=0; y--){
                 if(getValue(board, x, y) == 0 ){
                     int index= y * width + x;
                     possiblemoves.push_back( {0,index});
-
-                    //you cant place any more in this row.
+                    //We found the top spot. Continue with the other columns
                     break;
                 }
 
@@ -522,16 +523,12 @@ inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
 
 
     }else{
-
-        //find all the possible moves
+        //the possible moves are simply all empty spots
         for (int i = 0; i < BOARDSPOTS; ++i) {
             if (*(board + i) == 0) {
                 possiblemoves.push_back({0, i});
             }
         }
-
-
-
     }
 
 
