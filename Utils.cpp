@@ -10,7 +10,9 @@
 
 
 bool Utils::askUserForBool(std::string message) {
-    while (true){
+
+
+    while ( true){
         std::cout << message << std::endl;
         std::cout << "Please type y or n."<< std::endl;
 
@@ -24,6 +26,9 @@ bool Utils::askUserForBool(std::string message) {
             return true;
         }
         std::cout << "Invalid input" << std::endl;
+        //this resets cinn so we can try again
+        std::cin.clear();
+        std::cin.ignore(512, '\n');
     }
 }
 
@@ -39,6 +44,9 @@ int Utils::askUserForInt(std::string message, int min, int max) {
             return result;
         }
         std::cout << "Invalid input" << std::endl;
+        //this resets cinn so we can try again
+        std::cin.clear();
+        std::cin.ignore(512, '\n');
     }
 }
 
