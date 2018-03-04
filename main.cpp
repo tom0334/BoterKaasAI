@@ -93,9 +93,9 @@ void mainloop() {
     //create the board array and init all values to zero
     //this array will keep what pieces are on the board.
     //the values will be 0, COMPUTER or PLAYER
-    int board[BOARDSPOTS];
+    int *board = (int*) (malloc (BOARDSPOTS * sizeof *board));
     for (int i = 0; i < BOARDSPOTS; ++i) {
-        board[i] = 0;
+        *(board + i)= 0;
     }
 
 
@@ -321,6 +321,9 @@ void printBoardWithIndexes(int *board) {
 }
 
 bool moveIsValid(const int *board, int movespot) {
+    if(movespot<0 || movespot>= BOARDSPOTS){
+        return false;
+    }
 
     if(gravity){
         std::vector<MoveStruct> possibleMoves= getPossibleMoves(board);
@@ -381,7 +384,7 @@ int evalPlayer(int *board, int player) {
     std::vector<position> takenSpots= getTakenSpots(board , player);
 
     //this will keep the positions on the board. The index is the same as the index in the normal board[]
-    position boardPositions[BOARDSPOTS];
+    position boardPositions[9];
 
     for (auto pos : takenSpots) {
         boardPositions[pos.key]= pos;
@@ -437,7 +440,7 @@ int evalPlayer(int *board, int player) {
         count=1;
         current = p;
         //search for upright lines
-        while ( !current.check.upRight && current.y -1 >= 0  && getValue(board, current.x+1, current.y-1) == player){
+        while ( !current.check.upRight >= 0  && getValue(board, current.x+1, current.y-1) == player){
             count++;
             current.check.upRight=true;
             current = boardPositions[ current.key + width-1];
@@ -473,7 +476,8 @@ bool playerWon(int *board, int player) {
 
 
 inline std::vector<position> getTakenSpots(int *board, int player) {
-    std::vector<position> takenSpots(0);
+    std::vector<position> takenSpots;
+    takenSpots.reserve(static_cast<unsigned long>(BOARDSPOTS));
 
     for (short x = 0; x < width; ++x) {
         for (short y = 0; y < height; ++y) {
@@ -502,7 +506,8 @@ inline std::vector<position> getTakenSpots(int *board, int player) {
 }
 
 inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
-    std::vector<MoveStruct> possiblemoves(0);
+    std::vector<MoveStruct> possiblemoves;
+    possiblemoves.reserve(BOARDSPOTS);
 
     if (gravity) {
         //if we play with gravity, only the top spot in every column is a valid move
