@@ -34,6 +34,7 @@ struct PosCheckStruct{
     bool vertical;
     bool upRight;
     bool downRight;
+
 };
 //the key in here is the index in the board array
 struct position{
@@ -41,6 +42,14 @@ struct position{
     short x;
     short y;
     PosCheckStruct check;
+
+/*    position(short key, short x, short y){
+        this->key= key;
+        this->x= x;
+        this->y= y;
+        this->check= {false, false , false , false};
+    }*/
+
 };
 
 void mainloop();
@@ -384,7 +393,12 @@ int evalPlayer(int *board, int player) {
     std::vector<position> takenSpots= getTakenSpots(board , player);
 
     //this will keep the positions on the board. The index is the same as the index in the normal board[]
-    position boardPositions[9];
+    std::vector<position> boardPositions;
+    boardPositions.reserve(BOARDSPOTS);
+
+    for (int i = 0; i < BOARDSPOTS; ++i) {
+        boardPositions[i]= {};
+    }
 
     for (auto pos : takenSpots) {
         boardPositions[pos.key]= pos;
@@ -499,6 +513,7 @@ inline std::vector<position> getTakenSpots(int *board, int player) {
                         }
                 };
                 takenSpots.push_back(thePos);
+                //takenSpots.emplace_back(index, x, y);
             }
         }
     }
