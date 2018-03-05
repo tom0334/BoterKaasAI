@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include "Utils.h"
 #include <chrono>
+#include <string>
 
 const int PLAYER =1;
 const int COMPUTER=2;
@@ -55,7 +56,7 @@ struct position{
 void mainloop();
 char getCharForBoard(int content);
 void printBoard(const int*);
-MoveStruct minMax(int * board, int player, int depth);
+MoveStruct minMax(int * board, int player, int depth, int index);
 void doUserMove(int *board);
 bool moveIsValid(const int *board, int movespot);
 int getValue(const int* board, int x , int y);
@@ -67,9 +68,13 @@ inline std::vector<position> getTakenSpots(int * board, int player);
 bool playerWon(int * board, int player);
 inline std::vector<MoveStruct> getPossibleMoves(const int * board);
 bool hasEmptySpot(int *board);
+std::string hashKey(int *board);
 
 //these are for statistics only
 int callcount= 0;
+
+
+std::unordered_map<std::string,int> hashScores;
 
 
 int main() {
@@ -79,8 +84,8 @@ int main() {
         width = Utils::askUserForInt("Width?", 3, 6);
         height = Utils::askUserForInt("Height?", 3, 6);
     }else{
-        width = Utils::askUserForInt("Width?", 3, 4);
-        height = Utils::askUserForInt("Height?", 3, 4);
+        width = Utils::askUserForInt("Width?", 3, 5);
+        height = Utils::askUserForInt("Height?", 3, 5);
     }
     BOARDSPOTS= width * height;
 
@@ -106,7 +111,6 @@ void mainloop() {
     for (int i = 0; i < BOARDSPOTS; ++i) {
         *(board + i)= 0;
     }
-
 
     bool userTurn=userStarts;
 
@@ -158,14 +162,16 @@ void doComputerTurn(int *board) {
         depth=9;
     }
     else {
-        depth=6;
+        depth=9;
     }
 
+    hashScores.clear();
+    hashScores.reserve(15000000);
 
     auto start = std::chrono::high_resolution_clock::now();
 
     //Find the best move
-    MoveStruct m= minMax(board, COMPUTER,depth);
+    MoveStruct m= minMax(board, COMPUTER,depth,0);
 
     auto finish = std::chrono::high_resolution_clock::now();
 
@@ -179,6 +185,7 @@ void doComputerTurn(int *board) {
     std::cout << "Elapsed time: " << elapsed.count() << std::endl;
     std::cout << "Callcount: " << calcountInMillions << "M" <<std::endl;
     std::cout << "Calls per second: " << callsPerSecond << std::endl;
+    std::cout << "Hashmoves:" << hashScores.size()<< std::endl;
 
 
     //show the board before doing the move
@@ -190,15 +197,22 @@ void doComputerTurn(int *board) {
 
 
 
-MoveStruct minMax(int *board, int whoseTurn, int depth) {
+MoveStruct minMax(int *board, int whoseTurn, int depth, int index) {
     callcount++;
+
+    std::string key = hashKey(board);
+    auto iter = hashScores.find(key);
+    if (iter!= hashScores.end()){
+        return {iter->second ,index};
+    }
+    
 
     //see if we have a winner already. if we do, we don't have to continue.
     if (whoseTurn==COMPUTER && playerWon(board, COMPUTER)){
-        return {32000 +depth ,-1};
+        return {32000 +depth ,index};
     }
     else if (whoseTurn==PLAYER && playerWon(board, PLAYER)){
-        return {-32000 -depth ,-1};
+        return {-32000 -depth ,index};
     }
 
 
@@ -226,9 +240,9 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
 
         int score;
         if(whoseTurn==PLAYER){
-            score= minMax(board, COMPUTER, depth-1).score;
+            score= minMax(board, COMPUTER, depth-1, possiblemove.index).score;
         }else{
-            score = minMax(board, PLAYER, depth-1).score;
+            score = minMax(board, PLAYER, depth-1, possiblemove.index).score;
         }
         possiblemove.score= score;
         //undo the move
@@ -259,6 +273,7 @@ MoveStruct minMax(int *board, int whoseTurn, int depth) {
 
 
     }
+    hashScores.insert({hashKey(board),bestMove.score});
     return bestMove;
 }
 
@@ -553,6 +568,14 @@ inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
 
 
     return possiblemoves;
+}
+
+std::string hashKey(int *board) {
+    std::string code="";
+    for (int i = 0; i < BOARDSPOTS; ++i) {
+        code+= std::to_string(*(board+i));
+    }
+    return code;
 }
 
 
