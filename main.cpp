@@ -6,8 +6,8 @@
 #include <chrono>
 #include <string>
 
-const int PLAYER =1;
-const int COMPUTER=2;
+const short PLAYER =1;
+const short COMPUTER=2;
 
 //the size and the amount of spots on the board (width *height)
 int width;
@@ -53,22 +53,37 @@ struct position{
 
 };
 
+struct boardPos{
+    short key;
+    short x;
+    short y;
+    short val;
+
+    boardPos(short key, short x, short y){
+        this->key=key;
+        this->x = x;
+        this->y=y;
+        this->val=0;
+    }
+};
+
+
 void mainloop();
 char getCharForBoard(int content);
-void printBoard(const int*);
-MoveStruct minMax(int * board, int player, int depth, int index);
-void doUserMove(int *board);
-bool moveIsValid(const int *board, int movespot);
-int getValue(const int* board, int x , int y);
-void printBoardWithIndexes(int *board);
-int getWinner(int* board);
-void doComputerTurn(int *board);
-int evalPlayer(int *board, int player);
-inline std::vector<position> getTakenSpots(int * board, int player);
-bool playerWon(int * board, int player);
-inline std::vector<MoveStruct> getPossibleMoves(const int * board);
-bool hasEmptySpot(int *board);
-std::string hashKey(int *board);
+void printBoard(std::vector<boardPos> *);
+MoveStruct minMax(std::vector<boardPos> *board, int player, int depth, int index);
+void doUserMove(std::vector<boardPos> *board);
+bool moveIsValid(std::vector<boardPos> *board, int movespot);
+int getValue(std::vector<boardPos> *board, int x , int y);
+void printBoardWithIndexes(std::vector<boardPos> *board);
+int getWinner(std::vector<boardPos> *board);
+void doComputerTurn(std::vector<boardPos> *board);
+int evalPlayer(std::vector<boardPos> *board, int player);
+inline std::vector<position> getTakenSpots(std::vector<boardPos> *board, int player);
+bool playerWon(std::vector<boardPos> *board, int player);
+inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board);
+bool hasEmptySpot(std::vector<boardPos> *board);
+std::string hashKey(std::vector<boardPos> *board);
 
 //these are for statistics only
 int callcount= 0;
@@ -104,45 +119,46 @@ int main() {
 
 
 void mainloop() {
-    //create the board array and init all values to zero
-    //this array will keep what pieces are on the board.
-    //the values will be 0, COMPUTER or PLAYER
-    int *board = (int*) (malloc (BOARDSPOTS * sizeof *board));
+    std::vector<boardPos>  board;
+    board.reserve(BOARDSPOTS);
     for (int i = 0; i < BOARDSPOTS; ++i) {
-        *(board + i)= 0;
+        short x= i & width;
+        short y= i / width;
+        board.emplace_back(i,x,y);
     }
+    auto boardPntr = &board;
 
     bool userTurn=userStarts;
 
     while ( true ) {
-        if(getWinner(board)!=-1){
-            std::cout<< getCharForBoard(getWinner(board)) << " Has won!" <<std::endl;
+        if(getWinner(boardPntr)!=-1){
+            std::cout<< getCharForBoard(getWinner(boardPntr)) << " Has won!" <<std::endl;
             break;
         }
-        else if( !hasEmptySpot(board)) {
+        else if( !hasEmptySpot(boardPntr)) {
             std::cout << "It's a tie!" << std::endl;
             break;
         }
 
         if (userTurn) {
             std::cout << std::endl;
-            doUserMove(board);
+            doUserMove(boardPntr);
         }
-        else{ doComputerTurn(board);
+        else{ doComputerTurn(boardPntr);
         }
 
         userTurn=! userTurn;
     }
     std::cout << "Final board status: " << std::endl;
-    printBoard(board);
+    printBoard(boardPntr);
 }
 
 
 
 
-bool hasEmptySpot(int *board) {
+bool hasEmptySpot(std::vector<boardPos> *board) {
     for (int i = 0; i < BOARDSPOTS; ++i) {
-        if( *(board +i) ==0){
+        if( board->at(i).val ==0){
             return true;
         }
     }
@@ -150,7 +166,7 @@ bool hasEmptySpot(int *board) {
 }
 
 
-void doComputerTurn(int *board) {
+void doComputerTurn(std::vector<boardPos> *board) {
     //reset statistics
     callcount=0;
 
@@ -191,13 +207,13 @@ void doComputerTurn(int *board) {
     //show the board before doing the move
     printBoard(board);
     //do the best move
-    *(board + m.index)= COMPUTER;
+    board->at(m.index).val= COMPUTER;
 
 }
 
 
 
-MoveStruct minMax(int *board, int whoseTurn, int depth, int index) {
+MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index) {
     callcount++;
 
     std::string key = hashKey(board);
@@ -236,7 +252,7 @@ MoveStruct minMax(int *board, int whoseTurn, int depth, int index) {
     //try all the moves and save the scores it finds deeper in the search
     for (auto &possiblemove : possiblemoves) {
         //do the move
-        *(board + possiblemove.index) = whoseTurn;
+        board->at(possiblemove.index).val = whoseTurn;
 
         int score;
         if(whoseTurn==PLAYER){
@@ -246,7 +262,7 @@ MoveStruct minMax(int *board, int whoseTurn, int depth, int index) {
         }
         possiblemove.score= score;
         //undo the move
-        *(board + possiblemove.index) = 0;
+        board->at(possiblemove.index).val = 0;
     }
 
     //find the highest or lowest (depending on player) score to return it
@@ -279,7 +295,7 @@ MoveStruct minMax(int *board, int whoseTurn, int depth, int index) {
 
 
 
-int getWinner(int* board) {
+int getWinner(std::vector<boardPos> *board) {
     if(playerWon(board, COMPUTER)){
         return COMPUTER;
     }
@@ -293,7 +309,7 @@ int getWinner(int* board) {
 
 
 
-void doUserMove(int *board) {
+void doUserMove(std::vector<boardPos> *board) {
     //wait for the user to input a valid move
     int moveSpot=-1;
     while ( ! moveIsValid(board,moveSpot)){
@@ -303,14 +319,13 @@ void doUserMove(int *board) {
         std::cin >> moveSpot;
     }
     //do the move
-     * (board+ moveSpot)= PLAYER;
-
+    board->at(moveSpot).val = PLAYER;
 }
 
 
 
 //this prints the board with the index numbers to ask the user to type where he wants to place its item
-void printBoardWithIndexes(int *board) {
+void printBoardWithIndexes(std::vector<boardPos> *board) {
     //the length the max index possible for this boardsize
     //with length of the number, i mean  as string. for example, 403 is 3 chars long
     int maxLength = (int) log10( BOARDSPOTS) +1;
@@ -337,14 +352,14 @@ void printBoardWithIndexes(int *board) {
                 length++;
             }
 
-            std::cout << getCharForBoard( *(board +index)) << " :"  <<index;
+            std::cout << getCharForBoard( board->at(index).val) << " :"  <<index;
             std::cout << "|";
         }
         std::cout << std::endl;
     }
 }
 
-bool moveIsValid(const int *board, int movespot) {
+bool moveIsValid(std::vector<boardPos> *board, int movespot) {
     if(movespot<0 || movespot>= BOARDSPOTS){
         return false;
     }
@@ -359,7 +374,7 @@ bool moveIsValid(const int *board, int movespot) {
 
         return false;
     }
-    return *(board +movespot)==0;
+    return board->at(movespot).val==0;
 }
 
 
@@ -378,12 +393,12 @@ char getCharForBoard(int content) {
     }
 }
 
-void printBoard(const int * point) {
+void printBoard(std::vector<boardPos> *point) {
     int index =0;
 
     while (index < BOARDSPOTS){
         std::cout<< '|';
-        std::cout<< getCharForBoard(  *(point +index) );
+        std::cout<< getCharForBoard( point->at(index).val);
         index++;
         if (index %width==0){
             std::cout<< "|" << std::endl;
@@ -391,17 +406,18 @@ void printBoard(const int * point) {
     }
 }
 
-int getValue(const int *board, int x, int y) {
+int getValue(std::vector<boardPos> *board, int x, int y) {
     //index out of range
     if (x>=width || y>= height|| x<0 || y<0){
         return -1;
     }
-    return *(board + (y * width) + x);
+    int index =(y * width) + x;
+    return board->at(index).val;
 }
 
 
 
-int evalPlayer(int *board, int player) {
+int evalPlayer(std::vector<boardPos> *board, int player) {
 
 
     //this is a list of only the indexes taken by the current player
@@ -498,13 +514,13 @@ int evalPlayer(int *board, int player) {
 
 }
 
-bool playerWon(int *board, int player) {
+bool playerWon(std::vector<boardPos> *board, int player) {
     int evaluation= evalPlayer(board, player);
     return evaluation>=10000 || evaluation <=-10000;
 }
 
 
-inline std::vector<position> getTakenSpots(int *board, int player) {
+inline std::vector<position> getTakenSpots(std::vector<boardPos> *board, int player) {
     std::vector<position> takenSpots;
     takenSpots.reserve(static_cast<unsigned long>(BOARDSPOTS));
 
@@ -535,7 +551,7 @@ inline std::vector<position> getTakenSpots(int *board, int player) {
     return takenSpots;
 }
 
-inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
+inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board) {
     std::vector<MoveStruct> possiblemoves;
     possiblemoves.reserve(BOARDSPOTS);
 
@@ -560,7 +576,7 @@ inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
     }else{
         //the possible moves are simply all empty spots
         for (int i = 0; i < BOARDSPOTS; ++i) {
-            if (*(board + i) == 0) {
+            if ( board->at(i).val == 0) {
                 possiblemoves.push_back({0, i});
             }
         }
@@ -570,10 +586,10 @@ inline std::vector<MoveStruct> getPossibleMoves(const int *board) {
     return possiblemoves;
 }
 
-std::string hashKey(int *board) {
+std::string hashKey(std::vector<boardPos> *board) {
     std::string code="";
     for (int i = 0; i < BOARDSPOTS; ++i) {
-        code+= std::to_string(*(board+i));
+        code+= std::to_string(board->at(i).val);
     }
     return code;
 }
