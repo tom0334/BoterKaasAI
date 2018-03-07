@@ -60,6 +60,7 @@ bool hasEmptySpot(std::vector<boardPos> *board);
 std::string hashKey(std::vector<boardPos> *board);
 inline int getOtherPlayer(int player);
 std::string addInBetweenLine(std::string strPntr);
+std::string addInBetweenLine(std::string res, int length);
 
 //these are for statistics only
 int callcount= 0;
@@ -318,35 +319,29 @@ void doUserMove(std::vector<boardPos> *board) {
 void printBoardWithIndexes(std::vector<boardPos> *board) {
     //the length the max index possible for this boardsize
     //with length of the number, i mean  as string. for example, 403 is 3 chars long
-    int maxLength = (int) log10( BOARDSPOTS) +1;
-
-    for (int x = 0; x < height; ++x) {
-        std::cout << "|";
-        for (int y = 0; y < width; ++y) {
-
-            int index =(x * width) + y;
+    int maxLength = std::to_string(BOARDSPOTS).length();
 
 
-            int length;
-            //log10 ( 0+1) doesnt work...
-            if (index==0){
-                length=1;
-            }
-            else{
-                length=  (int)(log10(index)+1);
-            }
-
-            //print spaces for to align all items
-            while (length>0 && length < maxLength){
-                std::cout<< " ";
-                length++;
-            }
-
-            std::cout << getCharForBoard( board->at(index).val) << " :"  <<index;
-            std::cout << "|";
+    std::string res;
+    res = addInBetweenLine(res,maxLength +5);
+    for(int i=0;i<BOARDSPOTS; i++){
+        res +="|";
+        res = res + " " + getCharForBoard( board->at(i).val) +" ";
+        int lengthDif = maxLength -std::to_string(i).length();
+        for (int j = 0; j <lengthDif ; ++j) {
+            res+=" ";
         }
-        std::cout << std::endl;
+        res+=":" + std::to_string(i);
+
+        if ( board->at(i).x == width-1 ){
+            res+="|\n";
+            res = addInBetweenLine(res, maxLength+5);
+        }
     }
+
+    std::cout<< res<< std::endl;
+
+
 }
 
 bool moveIsValid(std::vector<boardPos> *board, int movespot) {
@@ -568,6 +563,21 @@ std::string addInBetweenLine(std::string res) {
     res+= "\n";
     return res;
 }
+
+std::string addInBetweenLine(std::string res, int length) {
+    res+="+";
+    for (int i = 0; i < width; ++i) {
+
+        for (int j = 0; j < length-1; ++j) {
+            res+= "—";
+        }
+        res+= "+";
+    }
+    res+= "\n";
+    return res;
+}
+
+
 
 
 
