@@ -69,25 +69,28 @@ struct boardPos{
 
 
 void mainloop();
-char getCharForBoard(int content);
+std::string getCharForBoard(int content);
 void printBoard(std::vector<boardPos> *);
-MoveStruct minMax(std::vector<boardPos> *board, int player, int depth, int index);
+MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index, int prevScore);
 void doUserMove(std::vector<boardPos> *board);
 bool moveIsValid(std::vector<boardPos> *board, int movespot);
 int getValue(std::vector<boardPos> *board, int x , int y);
+int getValue(std::vector<boardPos> *board, int index);
 void printBoardWithIndexes(std::vector<boardPos> *board);
+int evalPlayer(std::vector<boardPos> *board, int player, int nIndex, int prevScore);
 int getWinner(std::vector<boardPos> *board);
 void doComputerTurn(std::vector<boardPos> *board);
-int evalPlayer(std::vector<boardPos> *board, int player);
 inline std::vector<position> getTakenSpots(std::vector<boardPos> *board, int player);
-bool playerWon(std::vector<boardPos> *board, int player);
+bool playerWon(std::vector<boardPos> *board, int player, int lastIndex);
 inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board);
 bool hasEmptySpot(std::vector<boardPos> *board);
 std::string hashKey(std::vector<boardPos> *board);
+inline int getOtherPlayer(int player);
+std::string addInBetweenLine(std::string strPntr);
 
 //these are for statistics only
 int callcount= 0;
-
+int hashFound=0;
 
 std::unordered_map<std::string,int> hashScores;
 
@@ -122,7 +125,7 @@ void mainloop() {
     std::vector<boardPos>  board;
     board.reserve(BOARDSPOTS);
     for (int i = 0; i < BOARDSPOTS; ++i) {
-        short x= i & width;
+        short x= i % width;
         short y= i / width;
         board.emplace_back(i,x,y);
     }
@@ -169,16 +172,17 @@ bool hasEmptySpot(std::vector<boardPos> *board) {
 void doComputerTurn(std::vector<boardPos> *board) {
     //reset statistics
     callcount=0;
+    hashFound=0;
 
     int depth;
 
     //if the board is small, we can afford to go the full depth and win or tie the game every time
     //it it isn't, this may take a lot of time so we will depend more on the evaluation function
-    if(std::max(width, height)==3 || gravity){
+    if(std::max(width, height)<5 || gravity){
         depth=9;
     }
     else {
-        depth=9;
+        depth=6;
     }
 
     hashScores.clear();
@@ -187,7 +191,7 @@ void doComputerTurn(std::vector<boardPos> *board) {
     auto start = std::chrono::high_resolution_clock::now();
 
     //Find the best move
-    MoveStruct m= minMax(board, COMPUTER,depth,0);
+    MoveStruct m= minMax(board, COMPUTER,depth,-1,0);
 
     auto finish = std::chrono::high_resolution_clock::now();
 
@@ -201,7 +205,7 @@ void doComputerTurn(std::vector<boardPos> *board) {
     std::cout << "Elapsed time: " << elapsed.count() << std::endl;
     std::cout << "Callcount: " << calcountInMillions << "M" <<std::endl;
     std::cout << "Calls per second: " << callsPerSecond << std::endl;
-    std::cout << "Hashmoves:" << hashScores.size()<< std::endl;
+    std::cout << "HashMap size: " << hashScores.size()<< " Hashmoves found: "<< (float)hashFound/ (float)callcount <<  std::endl;
 
 
     //show the board before doing the move
@@ -213,29 +217,39 @@ void doComputerTurn(std::vector<boardPos> *board) {
 
 
 
-MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index) {
+MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index, int prevScore) {
     callcount++;
 
+
+    const int scoreOnThisLevel= evalPlayer(board, getOtherPlayer(whoseTurn),index,prevScore);
+
+/*
     std::string key = hashKey(board);
     auto iter = hashScores.find(key);
     if (iter!= hashScores.end()){
+        //std::cout<< "FOUND" << std::endl;
+        hashFound++;
         return {iter->second ,index};
     }
-    
+*/
+
 
     //see if we have a winner already. if we do, we don't have to continue.
-    if (whoseTurn==COMPUTER && playerWon(board, COMPUTER)){
+    if (whoseTurn==COMPUTER && scoreOnThisLevel> 10000){
+        //std::cout<<"FOUND A WINNING BOARD. WINNER IS COMPUTER"<<std::endl;
+        //printBoard(board);
         return {32000 +depth ,index};
     }
-    else if (whoseTurn==PLAYER && playerWon(board, PLAYER)){
+    else if (whoseTurn==PLAYER && scoreOnThisLevel < -10000){
+        //std::cout<<"FOUND A WINNING BOARD. WINNER IS PLAYER"<<std::endl;
+        //printBoard(board);
         return {-32000 -depth ,index};
     }
 
 
     //if we reach max depth, evaluate the board and return
     if(depth==0 ){
-        int score = evalPlayer(board, whoseTurn);
-        return {score, -1};
+        return {scoreOnThisLevel, index};
     }
 
 
@@ -256,9 +270,9 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
 
         int score;
         if(whoseTurn==PLAYER){
-            score= minMax(board, COMPUTER, depth-1, possiblemove.index).score;
+            score= minMax(board, COMPUTER, depth-1, possiblemove.index, scoreOnThisLevel).score;
         }else{
-            score = minMax(board, PLAYER, depth-1, possiblemove.index).score;
+            score = minMax(board, PLAYER, depth-1, possiblemove.index, scoreOnThisLevel).score;
         }
         possiblemove.score= score;
         //undo the move
@@ -289,19 +303,22 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
 
 
     }
-    hashScores.insert({hashKey(board),bestMove.score});
+    //hashScores.insert({hashKey(board),bestMove.score});
     return bestMove;
 }
 
 
 
 int getWinner(std::vector<boardPos> *board) {
-    if(playerWon(board, COMPUTER)){
-        return COMPUTER;
+    for (auto pos : *board) {
+        if( pos.val == COMPUTER && playerWon(board, COMPUTER, pos.key)){
+            return COMPUTER;
+        }
+        if(pos.val == PLAYER && playerWon(board, PLAYER,pos.key)){
+            return PLAYER;
+        }
     }
-    if(playerWon(board, PLAYER)){
-        return PLAYER;
-    }
+
     return -1;
 }
 
@@ -380,31 +397,37 @@ bool moveIsValid(std::vector<boardPos> *board, int movespot) {
 
 
 
-char getCharForBoard(int content) {
+std::string getCharForBoard(int content) {
     switch (content){
         case 0:
-            return ' ';
+            return " ";
         case PLAYER:
-            return 'X';
+            return "❌";
         case COMPUTER:
-            return 'O';
+            return "◉";
         default:
-            return 'e';
+            return "e";
     }
 }
 
 void printBoard(std::vector<boardPos> *point) {
-    int index =0;
 
-    while (index < BOARDSPOTS){
-        std::cout<< '|';
-        std::cout<< getCharForBoard( point->at(index).val);
-        index++;
-        if (index %width==0){
-            std::cout<< "|" << std::endl;
+    std::string res;
+    res = addInBetweenLine(res);
+    for(int i=0;i<BOARDSPOTS; i++){
+        res +="|";
+        res = res + " " + getCharForBoard( point->at(i).val) + " ";
+        if ( point->at(i).x == width-1 ){
+            res+="|\n";
+            res = addInBetweenLine(res);
         }
     }
+
+    std::cout<< res<< std::endl;
+
 }
+
+
 
 int getValue(std::vector<boardPos> *board, int x, int y) {
     //index out of range
@@ -417,105 +440,9 @@ int getValue(std::vector<boardPos> *board, int x, int y) {
 
 
 
-int evalPlayer(std::vector<boardPos> *board, int player) {
 
-
-    //this is a list of only the indexes taken by the current player
-    std::vector<position> takenSpots= getTakenSpots(board , player);
-
-    //this will keep the positions on the board. The index is the same as the index in the normal board[]
-    std::vector<position> boardPositions;
-    boardPositions.reserve(BOARDSPOTS);
-
-    for (int i = 0; i < BOARDSPOTS; ++i) {
-        boardPositions[i]= {};
-    }
-
-    for (auto pos : takenSpots) {
-        boardPositions[pos.key]= pos;
-    }
-
-    //this will keep the amount of times the index of this array is found in the board for this player
-    //for instance, if there are 3 rows of 2, counts[2] = 3
-    int counts[ 10];
-    for (int &count : counts) {
-        count =0;
-    }
-
-
-    //look at all the taken spots to find if it is the start of a row
-    for(position p: takenSpots) {
-        int count=1;
-
-        //save the position we are checking now to
-        position current = p;
-
-        //search for horizontal lines
-        while ( !current.check.horizontal && getValue(board, current.x +1, current.y) == player){
-            count++;
-            current.check.horizontal=true;
-            current = boardPositions[ current.key+1];
-        }
-        counts[count]++;
-
-
-        count=1;
-        current = p;
-        //search for vertical lines
-        while ( !current.check.vertical && getValue(board, current.x, current.y+1) == player){
-            count++;
-            current.check.vertical=true;
-            current = boardPositions[ current.key + width];
-        }
-        counts[count]++;
-
-
-        count=1;
-        current = p;
-        //search for downright lines
-        while ( !current.check.downRight  && getValue(board, current.x +1, current.y+1) == player){
-            count++;
-            current.check.downRight=true;
-            current = boardPositions[ current.key + width+1];
-        }
-        counts[count]++;
-
-
-
-        count=1;
-        current = p;
-        //search for upright lines
-        while ( !current.check.upRight >= 0  && getValue(board, current.x+1, current.y-1) == player){
-            count++;
-            current.check.upRight=true;
-            current = boardPositions[ current.key + width-1];
-        }
-        counts[count]++;
-    }
-
-
-
-    int score = 10000 * counts[amountOnARow] + 100* counts[3] + 10 * counts[2] + counts[1];
-
-
-    if(player==COMPUTER){
-        //std::cout <<  "COMPUTER: score for the following board: "<< score << std::endl;
-        //std::cout << "COUNTS: "<< counts[1] <<" " << counts[2]<< " " <<counts[3]<< std::endl;
-        //printBoard(board);
-        return score;
-    }
-    else{
-        //std::cout << "PLAYER: score for the following board"<< -score << std::endl;
-        //std::cout << "COUNTS: "<< counts[1] <<" " << counts[2]<< " " <<counts[3]<< std::endl;
-        //printBoard(board);
-        return -score;
-
-    }
-
-}
-
-bool playerWon(std::vector<boardPos> *board, int player) {
-    int evaluation= evalPlayer(board, player);
+bool playerWon(std::vector<boardPos> *board, int player, int lastIndex) {
+    int evaluation= evalPlayer(board,player,lastIndex,0);
     return evaluation>=10000 || evaluation <=-10000;
 }
 
@@ -587,11 +514,127 @@ inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board) {
 }
 
 std::string hashKey(std::vector<boardPos> *board) {
-    std::string code="";
+    std::string code;
+    code.reserve(BOARDSPOTS);
     for (int i = 0; i < BOARDSPOTS; ++i) {
         code+= std::to_string(board->at(i).val);
     }
     return code;
+}
+
+int evalPlayer(std::vector<boardPos> *board, int player, int nIndex, int prevScore) {
+
+    if(nIndex==-1){ return 0;}
+    //this will keep the amount of times the index of this array is found in the board for this player
+    //for instance, if there are 3 rows of 2, counts[2] = 3
+    int counts[10];
+    for (int &count : counts) {
+        count = 0;
+    }
+
+
+    //save the position we are checking now to
+    int count = 1;
+    boardPos current = board->at(nIndex);
+
+    //search for horizontal lines
+    while (getValue(board, current.x + 1, current.y) == player) {
+        count++;
+        current = board->at(current.key + 1);
+    }
+    current = board->at(nIndex);
+    while (getValue(board, current.x - 1, current.y) == player) {
+        count++;
+        current = board->at(current.key - 1);
+    }
+
+    counts[count]++;
+
+    count = 1;
+    current = board->at(nIndex);
+    //search for vertical lines
+    while (getValue(board, current.x, current.y + 1) == player) {
+        count++;
+        current = board->at(current.key + width);
+    }
+    current = board->at(nIndex);
+    while (getValue(board, current.x, current.y - 1) == player) {
+        count++;
+        current = board->at(current.key - width);
+    }
+
+    counts[count]++;
+
+
+    count = 1;
+    current = board->at(nIndex);
+    //search for downright lines
+    while (getValue(board, current.x + 1, current.y + 1) == player) {
+        count++;
+        current = board->at(current.key + width + 1);
+    }
+    current = board->at(nIndex);
+    while (getValue(board, current.x - 1, current.y - 1) == player) {
+        count++;
+        current = board->at(current.key - width - 1);
+    }
+    counts[count]++;
+
+
+    count = 1;
+    current = board->at(nIndex);
+    //search for upright lines
+    while (getValue(board, current.x + 1, current.y - 1) == player) {
+        count++;
+        current = board->at(current.key - width + 1);
+    }
+    current = board->at(nIndex);
+    while (getValue(board, current.x - 1, current.y + 1) == player) {
+        count++;
+        current = board->at(current.key + width - 1);
+    }
+    counts[count]++;
+
+
+    int score = 200000 * counts[amountOnARow] + 100 * counts[3] + 10 * counts[2] + counts[1];
+
+
+    //std::cout<< prevScore<< std::endl;
+    if (player == COMPUTER) {
+        //std::cout <<  "COMPUTER: score for the following board: "<< score << std::endl;
+        //std::cout << "COUNTS: "<< counts[1] <<" " << counts[2]<< " " <<counts[3]<< std::endl;
+        //printBoard(board);
+        return score + prevScore;
+    } else {
+        //std::cout << "PLAYER: score for the following board"<< -score << std::endl;
+        //std::cout << "COUNTS: "<< counts[1] <<" " << counts[2]<< " " <<counts[3]<< std::endl;
+        //printBoard(board);
+        return -score + prevScore;
+
+    }
+}
+
+int getValue(std::vector<boardPos> *board, int index) {
+    if (index>=0 && index< board->size()){
+        return board->at(index).val;
+    }
+    return -1;
+}
+
+int getOtherPlayer(int player) {
+    if (player== COMPUTER){
+        return PLAYER;
+    }
+    return COMPUTER;
+}
+
+std::string addInBetweenLine(std::string res) {
+    res+="+";
+    for (int i = 0; i < width; ++i) {
+        res+= "———+";
+    }
+    res+= "\n";
+    return res;
 }
 
 
