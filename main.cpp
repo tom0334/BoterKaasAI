@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include "Utils.h"
 #include <chrono>
-#include <string>
 
 const short PLAYER =1;
 const short COMPUTER=2;
@@ -29,30 +28,6 @@ struct MoveStruct{
     int index;
 };
 
-//this is for the evalution function. It uses it to keep track of what directions are already checked to avoid doing to many checks
-struct PosCheckStruct{
-    bool horizontal;
-    bool vertical;
-    bool upRight;
-    bool downRight;
-
-};
-//the key in here is the index in the board array
-struct position{
-    short key;
-    short x;
-    short y;
-    PosCheckStruct check;
-
-/*    position(short key, short x, short y){
-        this->key= key;
-        this->x= x;
-        this->y= y;
-        this->check= {false, false , false , false};
-    }*/
-
-};
-
 struct boardPos{
     short key;
     short x;
@@ -75,12 +50,10 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
 void doUserMove(std::vector<boardPos> *board);
 bool moveIsValid(std::vector<boardPos> *board, int movespot);
 int getValue(std::vector<boardPos> *board, int x , int y);
-int getValue(std::vector<boardPos> *board, int index);
 void printBoardWithIndexes(std::vector<boardPos> *board);
 int evalPlayer(std::vector<boardPos> *board, int player, int nIndex, int prevScore);
 int getWinner(std::vector<boardPos> *board);
 void doComputerTurn(std::vector<boardPos> *board);
-inline std::vector<position> getTakenSpots(std::vector<boardPos> *board, int player);
 bool playerWon(std::vector<boardPos> *board, int player, int lastIndex);
 inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board);
 bool hasEmptySpot(std::vector<boardPos> *board);
@@ -438,44 +411,9 @@ int getValue(std::vector<boardPos> *board, int x, int y) {
     return board->at(index).val;
 }
 
-
-
-
 bool playerWon(std::vector<boardPos> *board, int player, int lastIndex) {
     int evaluation= evalPlayer(board,player,lastIndex,0);
     return evaluation>=10000 || evaluation <=-10000;
-}
-
-
-inline std::vector<position> getTakenSpots(std::vector<boardPos> *board, int player) {
-    std::vector<position> takenSpots;
-    takenSpots.reserve(static_cast<unsigned long>(BOARDSPOTS));
-
-    for (short x = 0; x < width; ++x) {
-        for (short y = 0; y < height; ++y) {
-            short index =  (y *  (short)width) + x;
-
-            //check if this value is taken by the player.
-            //if it is, put it in the takenspots and the boardpositions
-            if(getValue(board,x,y)==player){
-
-                position thePos= {
-                        key: index,
-                        x: x,
-                        y :y,
-                        check:{
-                                false,
-                                false,
-                                false,
-                                false
-                        }
-                };
-                takenSpots.push_back(thePos);
-                //takenSpots.emplace_back(index, x, y);
-            }
-        }
-    }
-    return takenSpots;
 }
 
 inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board) {
@@ -614,12 +552,6 @@ int evalPlayer(std::vector<boardPos> *board, int player, int nIndex, int prevSco
     }
 }
 
-int getValue(std::vector<boardPos> *board, int index) {
-    if (index>=0 && index< board->size()){
-        return board->at(index).val;
-    }
-    return -1;
-}
 
 int getOtherPlayer(int player) {
     if (player== COMPUTER){
