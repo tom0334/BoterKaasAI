@@ -57,7 +57,7 @@ void doComputerTurn(std::vector<boardPos> *board);
 bool playerWon(std::vector<boardPos> *board, int player, int lastIndex);
 std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board);
 bool hasEmptySpot(std::vector<boardPos> *board);
-std::string hashKey(std::vector<boardPos> *board);
+int hashKey(std::vector<boardPos> *board);
 inline int getOtherPlayer(int player);
 std::string addInBetweenLine(std::string strPntr);
 std::string addInBetweenLine(std::string res, int length);
@@ -65,8 +65,8 @@ std::string addInBetweenLine(std::string res, int length);
 //these are for statistics only
 int callcount= 0;
 int hashFound=0;
-
-std::unordered_map<std::string,int> hashScores;
+std::unordered_map<int,int> hashScores;
+std::vector<int> randomNums;
 
 
 int main() {
@@ -80,6 +80,13 @@ int main() {
         height = Utils::askUserForInt("Height?", 3, 5);
     }
     BOARDSPOTS= width * height;
+
+    randomNums.reserve(BOARDSPOTS);
+
+    for (int i = 0; i < BOARDSPOTS; ++i) {
+        randomNums[i] = std::rand();
+        //std::cout<< randomNums[i]<<std::endl;
+    }
 
     amountOnARow= Utils::askUserForInt("How many on a row to win?",2, std::max(width, height));
     userStarts= Utils::askUserForBool("Do you want to start?");
@@ -153,10 +160,10 @@ void doComputerTurn(std::vector<boardPos> *board) {
     //if the board is small, we can afford to go the full depth and win or tie the game every time
     //it it isn't, this may take a lot of time so we will depend more on the evaluation function
     if(std::max(width, height)<5 || gravity){
-        depth=11;
+        depth=12;
     }
     else {
-        depth=6;
+        depth=7;
     }
 
     hashScores.clear();
@@ -207,7 +214,7 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
 
 
 
-    std::string key = hashKey(board);
+    auto key = hashKey(board);
     auto iter = hashScores.find(key);
     if (iter!= hashScores.end()){
         //std::cout<< "FOUND" << std::endl;
@@ -459,11 +466,10 @@ bool playerWon(std::vector<boardPos> *board, int player, int lastIndex) {
     return possiblemoves;
 }
 
-std::string hashKey(std::vector<boardPos> *board) {
-    std::string code;
-    code.reserve(BOARDSPOTS);
+int hashKey(std::vector<boardPos> *board) {
+    int code=0;
     for (int i = 0; i < BOARDSPOTS; ++i) {
-        code+= std::to_string(board->at(i).val);
+        code+= randomNums[i] * board->at(i).val;
     }
     return code;
 }
