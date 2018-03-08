@@ -46,7 +46,7 @@ struct boardPos{
 void mainloop();
 std::string getCharForBoard(int content);
 void printBoard(std::vector<boardPos> *);
-MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index, int prevScore);
+MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index, int computerScore, int playerScore);
 void doUserMove(std::vector<boardPos> *board);
 bool moveIsValid(std::vector<boardPos> *board, int movespot);
 int getValue(std::vector<boardPos> *board, int x , int y);
@@ -55,7 +55,7 @@ int evalPlayer(std::vector<boardPos> *board, int player, int nIndex, int prevSco
 int getWinner(std::vector<boardPos> *board);
 void doComputerTurn(std::vector<boardPos> *board);
 bool playerWon(std::vector<boardPos> *board, int player, int lastIndex);
-inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board);
+std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board);
 bool hasEmptySpot(std::vector<boardPos> *board);
 std::string hashKey(std::vector<boardPos> *board);
 inline int getOtherPlayer(int player);
@@ -153,7 +153,7 @@ void doComputerTurn(std::vector<boardPos> *board) {
     //if the board is small, we can afford to go the full depth and win or tie the game every time
     //it it isn't, this may take a lot of time so we will depend more on the evaluation function
     if(std::max(width, height)<5 || gravity){
-        depth=9;
+        depth=11;
     }
     else {
         depth=6;
@@ -165,7 +165,7 @@ void doComputerTurn(std::vector<boardPos> *board) {
     auto start = std::chrono::high_resolution_clock::now();
 
     //Find the best move
-    MoveStruct m= minMax(board, COMPUTER,depth,-1,0);
+    MoveStruct m= minMax(board, COMPUTER,depth,-1,0,0);
 
     auto finish = std::chrono::high_resolution_clock::now();
 
@@ -191,13 +191,22 @@ void doComputerTurn(std::vector<boardPos> *board) {
 
 
 
-MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index, int prevScore) {
+MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int index, int computerScore, int playerScore) {
     callcount++;
 
 
-    const int scoreOnThisLevel= evalPlayer(board, getOtherPlayer(whoseTurn),index,prevScore);
+    if (whoseTurn==COMPUTER){
+        playerScore = evalPlayer(board, PLAYER,index,playerScore);
+        //std::cout<< " CURRENT SCORE" << playerScore << std::endl;
+        //printBoard(board);
+    }else{
+        computerScore = evalPlayer(board, COMPUTER,index,computerScore);
+       // std::cout<< " CURRENT SCORE" << computerScore << std::endl;
+        //printBoard(board);
+    }
 
-/*
+
+
     std::string key = hashKey(board);
     auto iter = hashScores.find(key);
     if (iter!= hashScores.end()){
@@ -205,25 +214,29 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
         hashFound++;
         return {iter->second ,index};
     }
-*/
 
 
     //see if we have a winner already. if we do, we don't have to continue.
-    if (whoseTurn==COMPUTER && scoreOnThisLevel> 10000){
+    if (computerScore> 100000){
         //std::cout<<"FOUND A WINNING BOARD. WINNER IS COMPUTER"<<std::endl;
         //printBoard(board);
-        return {32000 +depth ,index};
+        return {3200000 +1000*depth ,index};
     }
-    else if (whoseTurn==PLAYER && scoreOnThisLevel < -10000){
+    else if (playerScore< -100000){
         //std::cout<<"FOUND A WINNING BOARD. WINNER IS PLAYER"<<std::endl;
         //printBoard(board);
-        return {-32000 -depth ,index};
+        return {-3200000 -1000*depth  ,index};
     }
 
 
     //if we reach max depth, evaluate the board and return
-    if(depth==0 ){
-        return {scoreOnThisLevel, index};
+    if(depth==0  ){
+        if(whoseTurn==PLAYER) {
+            return {evalPlayer(board,COMPUTER,index,computerScore), index};
+        }
+        else{
+            return {evalPlayer(board,PLAYER,index,playerScore), index};
+        }
     }
 
 
@@ -232,8 +245,8 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
 
 
     //tie
-    if (possiblemoves.empty() ){
-        return {0,-1};
+    if (possiblemoves.empty() && whoseTurn==COMPUTER ){
+        return {0,index};
 
     }
 
@@ -244,9 +257,9 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
 
         int score;
         if(whoseTurn==PLAYER){
-            score= minMax(board, COMPUTER, depth-1, possiblemove.index, scoreOnThisLevel).score;
+            score= minMax(board, COMPUTER, depth-1, possiblemove.index, computerScore, playerScore).score;
         }else{
-            score = minMax(board, PLAYER, depth-1, possiblemove.index, scoreOnThisLevel).score;
+            score = minMax(board, PLAYER, depth-1, possiblemove.index, computerScore, playerScore).score;
         }
         possiblemove.score= score;
         //undo the move
@@ -277,7 +290,7 @@ MoveStruct minMax(std::vector<boardPos> *board, int whoseTurn, int depth, int in
 
 
     }
-    //hashScores.insert({hashKey(board),bestMove.score});
+    hashScores.insert({hashKey(board),bestMove.score});
     return bestMove;
 }
 
@@ -370,7 +383,7 @@ std::string getCharForBoard(int content) {
         case 0:
             return " ";
         case PLAYER:
-            return "❌";
+            return "⨯";
         case COMPUTER:
             return "◉";
         default:
@@ -408,10 +421,10 @@ int getValue(std::vector<boardPos> *board, int x, int y) {
 
 bool playerWon(std::vector<boardPos> *board, int player, int lastIndex) {
     int evaluation= evalPlayer(board,player,lastIndex,0);
-    return evaluation>=10000 || evaluation <=-10000;
+    return evaluation>=1000000 || evaluation <=-1000000;
 }
 
-inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board) {
+ std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board) {
     std::vector<MoveStruct> possiblemoves;
     possiblemoves.reserve(BOARDSPOTS);
 
@@ -421,7 +434,7 @@ inline std::vector<MoveStruct> getPossibleMoves(std::vector<boardPos> *board) {
         //loop over all columns and find the top empty spot
         for( int x= 0; x<width ; x++){
             //note the reversed order. Start at the bottom...
-            for( int y = height; y>=0; y--){
+            for( int y = height-1; y>=0; y--){
                 if(getValue(board, x, y) == 0 ){
                     int index= y * width + x;
                     possiblemoves.push_back( {0,index});
@@ -529,7 +542,7 @@ int evalPlayer(std::vector<boardPos> *board, int player, int nIndex, int prevSco
     counts[count]++;
 
 
-    int score = 200000 * counts[amountOnARow] + 100 * counts[3] + 10 * counts[2] + counts[1];
+    int score = 2000000 * counts[amountOnARow] + 10000 * counts[3] + 100 * counts[2] + counts[1];
 
 
     //std::cout<< prevScore<< std::endl;
