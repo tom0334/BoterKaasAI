@@ -73,8 +73,8 @@ int main() {
     gravity= Utils::askUserForBool("Hi! Gravity?");
 
     if(gravity){
-        width = Utils::askUserForInt("Width?", 3, 6);
-        height = Utils::askUserForInt("Height?", 3, 6);
+        width = Utils::askUserForInt("Width?", 3, 7);
+        height = Utils::askUserForInt("Height?", 3, 7);
     }else{
         width = Utils::askUserForInt("Width?", 3, 5);
         height = Utils::askUserForInt("Height?", 3, 5);
